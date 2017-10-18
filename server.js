@@ -3,43 +3,97 @@
 var express = require('express');
 var app = express();
 var mcache = require('memory-cache');
+var bodyParser = require('body-parser');
+var redis = require("redis"),
+  client = redis.createClient();
+
+client.on("error", function (err) {
+  console.log("Error " + err);
+});
+
+setInterval(() => client.set("foo_rand000000000000", new Date()), 5000)
 
 app.set('view engine', 'jade');
 
+app.use(bodyParser.json());
+app.use(bodyParser.urlencoded({ extended: false }));
+
 var cache = (duration) => {
   return (req, res, next) => {
-    let key = '__express__' + req.originalUrl || req.url
-    let cachedBody = mcache.get(key)
-    if (cachedBody) {
-      res.send(cachedBody)
-      return
-    } else {
-      res.sendResponse = res.send
-      res.send = (body) => {
-        mcache.put(key, body, duration * 1000);
-        res.sendResponse(body)
-      }
-      next()
-    }
+
+    console.log(req.headers)
+    // let key = '__express__' + req.originalUrl || req.url
+    // let cachedBody = mcache.get(key)
+    // if (cachedBody) {
+    //   res.send(cachedBody)
+    //   return
+    // } else {
+    //   res.sendResponse = res.send
+    //   res.send = (body) => {
+    //     mcache.put(key, body, duration * 1000);
+    //     res.sendResponse(body)
+    //   }
+    //   next()
+    // }
+    next()
   }
 }
 
 app.get('/', cache(10), (req, res) => {
   setTimeout(() => {
-    res.render('index', { title: 'Hey', message: 'Hello there', date: new Date()})
+    res.render('index', {
+      title: 'Hey',
+      message: 'Hello there',
+      date: new Date()
+    })
   }, 5000) //setTimeout was used to simulate a slow processing request
 })
 
+app.put('/redis', cache(10), (req, res) => {
+  client.get("foo_rand000000000000", function (err, reply) {
+    console.log(reply)
+
+  });
+  console.log(req.body)
+  console.log(client.set("foo_rand000000000000", req.body.param))
+  client.get("foo_rand000000000000", function (err, reply) {
+    console.log(reply)
+    res.send(reply.toString()); // Will print `OK`
+
+  });
+
+})
+
+app.get('/redis', (req, res) => {
+  client.get("foo_rand000000000000", function (err, reply) {
+    console.log(reply)
+    res.send(reply.toString()); // Will print `OK`
+
+  });
+})
+
 app.get('/user/:id', cache(10), (req, res) => {
+  res.setHeader("Cache-Control", "public, max-age=2592000");
+  res.setHeader("Expires", new Date(Date.now() + 2592000000).toUTCString());
+  // res.setHeader("Pragma", 'no-cache');
   setTimeout(() => {
     if (req.params.id == 1) {
-      res.json({ id: 1, name: "John"})
+      res.json({
+        id: 1,
+        name: "John"
+      })
     } else if (req.params.id == 2) {
-      res.json({ id: 2, name: "Bob"})
+      res.json({
+        id: 2,
+        name: "Bob"
+      })
     } else if (req.params.id == 3) {
-      res.json({ id: 3, name: "Stuart"})
+      res.json({
+        id: 3,
+        name: "Stuart"
+      })
     }
-  }, 3000) //setTimeout was used to simulate a slow processing request
+  }, 1000) //setTimeout was used to simulate a slow processing request
 })
 
 app.use((req, res) => {
