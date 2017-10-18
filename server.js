@@ -51,15 +51,10 @@ app.get('/', cache(10), (req, res) => {
   }, 5000) //setTimeout was used to simulate a slow processing request
 })
 
-app.put('/redis', cache(10), (req, res) => {
-  client.get("foo_rand000000000000", function (err, reply) {
-    console.log(reply)
+app.get('/redis', cache(10), (req, res) => {
 
-  });
-  console.log(req.body)
-
-  client.get("foo_rand000000000000", function (err, reply) {
-    console.log(reply)
+  client.get("foo_rand000000000000", function (err, reply2) {
+    // console.log(reply)
     let key = 'Last-Modified' + req.originalUrl || req.url
 
 
@@ -70,13 +65,17 @@ app.put('/redis', cache(10), (req, res) => {
       if (req.headers['if-modified-since'] != reply) {
 
         res.setHeader("Last-Modified", reply);
-        res.status(412).end()
+        
+        res.setHeader("Cache-Control", "public,max-age=60000");
+        // res.status(412).end("412")
+        res.send(reply2)
       } else {
 
         client.set(key, t)
         res.setHeader("Last-Modified", t);
-        client.set("foo_rand000000000000", req.body.param)
-        res.send(req.body.param); // Will print `OK`
+        res.setHeader("Cache-Control", "max-age=60000");
+        client.set("foo_rand000000000000", t)
+        res.send(t); // Will print `OK`
       }
     })
 
@@ -86,13 +85,13 @@ app.put('/redis', cache(10), (req, res) => {
 
 })
 
-app.get('/redis', (req, res) => {
-  client.get("foo_rand000000000000", function (err, reply) {
-    console.log(reply)
-    res.send(reply.toString()); // Will print `OK`
+// app.get('/redis', (req, res) => {
+//   client.get("foo_rand000000000000", function (err, reply) {
+//     console.log(reply)
+//     res.send(reply.toString()); // Will print `OK`
 
-  });
-})
+//   });
+// })
 
 app.get('/user/:id', cache(10), (req, res) => {
   res.setHeader("Cache-Control", "public, max-age=2592000");
