@@ -16,7 +16,9 @@ setInterval(() => client.set("foo_rand000000000000", new Date()), 5000)
 app.set('view engine', 'jade');
 
 app.use(bodyParser.json());
-app.use(bodyParser.urlencoded({ extended: false }));
+app.use(bodyParser.urlencoded({
+  extended: false
+}));
 
 var cache = (duration) => {
   return (req, res, next) => {
@@ -55,10 +57,30 @@ app.put('/redis', cache(10), (req, res) => {
 
   });
   console.log(req.body)
-  console.log(client.set("foo_rand000000000000", req.body.param))
+
   client.get("foo_rand000000000000", function (err, reply) {
     console.log(reply)
-    res.send(reply.toString()); // Will print `OK`
+    let key = 'Last-Modified' + req.originalUrl || req.url
+
+
+    client.get(key, function (err, reply) {
+      
+      let t = new Date().toUTCString()
+      console.log(req.headers['if-modified-since'])
+      if (req.headers['if-modified-since'] != reply) {
+
+        res.setHeader("Last-Modified", reply);
+        res.status(412).end()
+      } else {
+
+        client.set(key, t)
+        res.setHeader("Last-Modified", t);
+        client.set("foo_rand000000000000", req.body.param)
+        res.send(req.body.param); // Will print `OK`
+      }
+    })
+
+
 
   });
 
